@@ -1,0 +1,21 @@
+x=1;
+for num in `seq 0 242`
+do
+        for i in 2 3 4 5 6   
+        do
+                y=`echo "$num % 3" | bc`;
+                if [ "$y" = "0" ];
+                then
+                        x="$x$i";
+                elif [ "$y" = "1" ];
+                then
+                        x="$x+$i";
+                else
+                        x="$x-$i";
+                fi              
+                num=`echo "$num / 3" | bc`;
+        done
+       
+        echo $x;                
+        x=1;
+done              

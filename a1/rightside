@@ -1,0 +1,7 @@
+while read expr
+do
+    if test `echo $expr | bc` -eq 47
+    then
+	echo $expr lul
+    fi
+done

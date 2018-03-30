@@ -1,0 +1,4 @@
+ps aux | grep out | tr -s ' ' | cut -d" " -f2 > killthese
+while read line; do kill -9 "$line"; done < killthese
+ps aux | grep listener | tr -s ' ' | cut -d" " -f2 > killthese
+while read line; do kill -9 "$line"; done < killthese

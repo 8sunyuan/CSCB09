@@ -1,0 +1,38 @@
+1. Create linked list with node for each process
+   First node has pid of -1
+    -call this front
+   Set empty = 1;
+
+2. run all  child processes at once
+    if (respawn)
+      Insert pid and command string
+        //curr = insert(pid, command, curr);
+      if (empty) {
+        empty = 0;
+      }
+
+3. If empty return
+  wait for child process
+
+
+
+
+Part 2: After setting all initial processes we have to wait for the respawns
+
+Check PID, Is it in list?
+  No? go back thru loop. This happens for "once" processes that are finished
+
+  Yes? that means its respawn
+    FORK();
+      ERROR: handle
+      Child: Go thru list, get command, remove node from List
+      Parent: Change id
+
+
+
+Final Submit:
+  1. p2myinit.c
+      shows all echo PROCESSES, needs to check all run levels in string
+  2. test.c
+      checks all run levels in string(not tested).
+        update- doesn't work.
