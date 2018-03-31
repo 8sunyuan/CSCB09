@@ -78,7 +78,7 @@ int main(int argc, char **argv)
     int port, socket, max_fd;
     struct sockaddr_in r;
     char message[50] = "Welcome to Mancala.  What is your name?\n";
-    
+
     port = parseargs(argc, argv);
 
     if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
@@ -123,7 +123,7 @@ int main(int argc, char **argv)
             }
         }
 
-        activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
+        activity = select(max_fd + 1 , &readfds , NULL , NULL , NULL);
         if ((activity < 0) && (errno != EINTR))
             printf("select error");
 
@@ -143,10 +143,25 @@ int main(int argc, char **argv)
 
             // Create new player and add to end of linked list
             // Currently not playing, has to input their name but is connected
-            insert(new_socket, , 0,last)
+            insert(new_socket, 0,last)
+            break;
+        }
 
+        // IO operation on other socket
+        for (p = playerlist->next; p != last; p = p->next) {
+            if (FD_ISSET(p->fd, &readfds) {
+                // Linkedlist shit
 
+                // if !p->joined
+                // read name and store in p->name;
 
+                // else if p->joined
+                    // If move = p->fd
+                    // read index and must be valid from
+                    // else print
+                    // gtfo just to him
+
+            }
         }
 
     }
@@ -187,7 +202,7 @@ int parseargs(int argc, char **argv)
     	    status++;
     	}
     }
-    
+
     if (status || optind != argc) {
 	   fprintf(stderr, "usage: %s [-p port]\n", argv[0]);
 	   exit(1);
@@ -258,5 +273,3 @@ int game_is_over() /* boolean */
     }
     return(0);
 }
-
-
