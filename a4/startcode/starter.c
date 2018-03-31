@@ -19,11 +19,47 @@ int listenfd;
 #define NPITS 6  /* number of pits on a side, not including the end pit */
 
 struct player {
-    int fd[2];
+    int fd;
     int pits[NPITS+1];
+    int playing;
     char *name;
     struct player *next;
 } *playerlist = NULL;
+
+void delete(int fd)
+{
+    struct player **pp;
+
+    /* find the (struct item *) which points to the item to be deleted */
+    for (pp = &playerlist; *pp && (*pp)->fd != key; pp = &(*pp)->next)
+        ;
+    if (*pp && (*pp)->fd == key) {
+        struct player *old = *pp;
+        *pp = (*pp)->next;
+        free(old);
+    }
+}
+
+void insert(int fd, int playing, struct player *last)
+{
+    struct player *new, **pp;
+    int i, pebbles = compute_average_pebbles;
+    /* create the new item */
+    if ((new = malloc(sizeof(struct player))) == NULL) {
+        fprintf(stderr, "out of memory!\n");  /* unlikely */
+        exit(1);
+    }
+    new->fd = fd;
+    strcpy(new->name, name);
+    for (i = 0; i < NPITS; i++)
+        new->pits[i] = pebbles;
+
+    /* link it in */
+    new->next = playerlist;
+    last->next = new;
+}
+
+
 
 extern void parseargs(int argc, char **argv);
 extern void makelistener();
@@ -36,13 +72,82 @@ extern void broadcast(char *s);
 int main(int argc, char **argv)
 {
     struct player *p;
+    struct player *last;
+    fd_set *fds;
     char msg[MAXNAME + 50];
+    int port, socket, max_fd;
+    struct sockaddr_in r;
+    char message[50] = "Welcome to Mancala.  What is your name?\n";
+    
+    port = parseargs(argc, argv);
 
-    parseargs(argc, argv);
-    makelistener();
+    if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
+    	perror("socket");
+    	exit(1);
+    }
+
+    memset(&r, '\0', sizeof r);
+    r.sin_family = AF_INET;
+    r.sin_addr.s_addr = INADDR_ANY;
+    r.sin_port = htons(port);
+    if (bind(server_socket, (struct sockaddr *)&r, sizeof r)) {
+    	perror("bind");
+    	exit(1);
+    };
+
+    if (listen(server_socket, 5)) {
+    	perror("listen");
+    	exit(1);
+    }
 
     while (!game_is_over()) {
-    
+        fd_set read_fds;
+        FD_ZERO(&read_fds);
+        FD_SET(server_socket, &readfds);
+        max_fd = server_socket;
+        size = sizeof r;
+        p = playerlist;
+        last = playerlist;
+
+        if (p != null) {
+            if (p->fd > 0) FD_SET(p->fd, &read_fds);
+            if (p->fd > max_fd) max_fd = p->fd;
+            p = p->next;
+            while (p != playerlist) {
+                // add child sockets to set
+                if (p->fd > 0) FD_SET(p->fd, &read_fds);
+                // highest file descriptor number, needed for select
+                if (p->fd > max_fd) max_fd =  p->fd;
+                last = p;
+                p = p->next;
+            }
+        }
+
+        activity = select(max_sd + 1 , &readfds , NULL , NULL , NULL);
+        if ((activity < 0) && (errno != EINTR))
+            printf("select error");
+
+        // Incoming connection on the server socket
+        if (FD_ISSET(server_socket, &readfds)) {
+            if ((new_socket = accept(server_socket, (struct sockaddr*)&r, (socklen_t*)&size)) < 0) {
+                perror("accept");
+                exit(EXIT_FAILURE);
+            }
+
+            // Print new connection on server
+            printf("connection from %s\n", inet_ntoa(r.sin_addr));
+
+            // Send welcome message to new player
+            if (send(new_socket, message, strlen(message), 0) != strlen(message))
+                perror("send");
+
+            // Create new player and add to end of linked list
+            // Currently not playing, has to input their name but is connected
+            insert(new_socket, , 0,last)
+
+
+
+        }
 
     }
 
@@ -70,7 +175,7 @@ void broadcast(char *s) {
 }
 
 
-void parseargs(int argc, char **argv)
+int parseargs(int argc, char **argv)
 {
     int c, status = 0;
     while ((c = getopt(argc, argv, "p:")) != EOF) {
@@ -87,10 +192,12 @@ void parseargs(int argc, char **argv)
 	   fprintf(stderr, "usage: %s [-p port]\n", argv[0]);
 	   exit(1);
     }
+
+    return port;
 }
 
 
-void makelistener(int *fd, FD_SET *fds)
+void makelistener()
 {
     struct sockaddr_in r;
 
@@ -112,12 +219,6 @@ void makelistener(int *fd, FD_SET *fds)
     	perror("listen");
     	exit(1);
     }
-
-    FD_ZERO(read_fds);
-    FD_SET(fd[0], read_fds);
-
-    
-
 }
 
 
@@ -157,3 +258,5 @@ int game_is_over() /* boolean */
     }
     return(0);
 }
+
+
