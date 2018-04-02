@@ -9,6 +9,8 @@
 #include <arpa/inet.h>
 #include <sys/select.h>
 #include <sys/time.h>
+#include <errno.h>
+
 
 
 int port = 3000;
@@ -22,64 +24,94 @@ struct player {
     int fd;
     int pits[NPITS+1];
     int playing;
-    char *name;
+    char name[1025];
     struct player *next;
 } *playerlist = NULL;
+
+extern void parseargs(int argc, char **argv);
+extern void makelistener();
+extern int compute_average_pebbles();
+extern int game_is_over();  /* boolean */
+extern void broadcast(char *s);
 
 void delete(int fd)
 {
     struct player **pp;
 
     /* find the (struct item *) which points to the item to be deleted */
-    for (pp = &playerlist; *pp && (*pp)->fd != key; pp = &(*pp)->next)
+    for (pp = &playerlist; *pp && (*pp)->fd != fd; pp = &(*pp)->next)
         ;
-    if (*pp && (*pp)->fd == key) {
+    if (*pp && (*pp)->fd == fd) {
         struct player *old = *pp;
         *pp = (*pp)->next;
         free(old);
     }
 }
 
-void insert(int fd, int playing, struct player *last)
+void insert(int fd, int playing)
 {
-    struct player *new, **pp;
-    int i, pebbles = compute_average_pebbles;
+    struct player *new, **p;
+    int i, pebbles = compute_average_pebbles();
     /* create the new item */
     if ((new = malloc(sizeof(struct player))) == NULL) {
         fprintf(stderr, "out of memory!\n");  /* unlikely */
         exit(1);
     }
     new->fd = fd;
-    strcpy(new->name, name);
+    new->playing = playing;
     for (i = 0; i < NPITS; i++)
         new->pits[i] = pebbles;
 
-    /* link it in */
-    new->next = playerlist;
-    last->next = new;
+    for (p = &playerlist; *p; p = &(*p)->next);
+    new->next = *p;
+    *p = new;
 }
 
+void printall()
+{
+    struct player *p;
+    for (p = playerlist; p; p = p->next)
+        printf("%d: %d\n", p->fd, p->playing);
+    printf("[end]\n");
+}
 
+int is_space(char *s) {
+  while (*s != '\0') {
+    if (!isspace(*s))
+      return 0;
+    s++;
+  }
+  return 1;
+}
 
-extern void parseargs(int argc, char **argv);
-extern void makelistener();
-
-extern int compute_average_pebbles();
-extern int game_is_over();  /* boolean */
-extern void broadcast(char *s);
-
+int is_valid(char *s) {
+    struct player *p;
+    // Empty line, invalid name
+    if (is_space(s)) return 2;
+    // Check players for no duplicate names
+    for (p = playerlist; p; p = p->next) {
+        if (strcmp(p->name, s) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
 
 int main(int argc, char **argv)
 {
-    struct player *p;
-    struct player *last;
-    fd_set *fds;
+    struct player *p, *next;
+    fd_set readfds;
     char msg[MAXNAME + 50];
-    int port, socket, max_fd;
+    int server_socket, new_socket;
+    int max_fd, size, activity, valread;
     struct sockaddr_in r;
-    char message[50] = "Welcome to Mancala.  What is your name?\n";
+    char buf[1025];
+    char welcome[50] = "Welcome to Mancala. What is your name?\n";
+    char message[1001];
+    int val, turn = -1;
+    int lastchar;
 
-    port = parseargs(argc, argv);
+    parseargs(argc, argv);
 
     if ((server_socket = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
     	perror("socket");
@@ -101,28 +133,17 @@ int main(int argc, char **argv)
     }
 
     while (!game_is_over()) {
-        fd_set read_fds;
-        FD_ZERO(&read_fds);
+        FD_ZERO(&readfds);
         FD_SET(server_socket, &readfds);
         max_fd = server_socket;
         size = sizeof r;
-        p = playerlist;
-        last = playerlist;
 
-        if (p != null) {
-            if (p->fd > 0) FD_SET(p->fd, &read_fds);
+        for (p = playerlist; p; p = p->next) {
+            // add child sockets to set
+            if (p->fd > 0) FD_SET(p->fd, &readfds);
+            // highest file descriptor number, needed for select
             if (p->fd > max_fd) max_fd = p->fd;
-            p = p->next;
-            while (p != playerlist) {
-                // add child sockets to set
-                if (p->fd > 0) FD_SET(p->fd, &read_fds);
-                // highest file descriptor number, needed for select
-                if (p->fd > max_fd) max_fd =  p->fd;
-                last = p;
-                p = p->next;
-            }
         }
-
         activity = select(max_fd + 1 , &readfds , NULL , NULL , NULL);
         if ((activity < 0) && (errno != EINTR))
             printf("select error");
@@ -133,37 +154,82 @@ int main(int argc, char **argv)
                 perror("accept");
                 exit(EXIT_FAILURE);
             }
-
             // Print new connection on server
             printf("connection from %s\n", inet_ntoa(r.sin_addr));
-
             // Send welcome message to new player
-            if (send(new_socket, message, strlen(message), 0) != strlen(message))
+            if (send(new_socket, welcome, strlen(welcome), 0) != strlen(welcome))
                 perror("send");
-
             // Create new player and add to end of linked list
             // Currently not playing, has to input their name but is connected
-            insert(new_socket, 0,last)
-            break;
+            if (playerlist == NULL)
+                turn = new_socket;
+            insert(new_socket, 0);
+            continue;
         }
-
         // IO operation on other socket
-        for (p = playerlist->next; p != last; p = p->next) {
-            if (FD_ISSET(p->fd, &readfds) {
-                // Linkedlist shit
+        printall();
+        for (p = playerlist; p; p = p->next) {
+            if (FD_ISSET(p->fd, &readfds)) {
+                //printall();
+                if ((valread = read(p->fd, buf, 1024)) == 0) {
+                    //Somebody disconnected , get his details and print
+                    getpeername(p->fd , (struct sockaddr*)&r , (socklen_t*)&size);
+                    printf("disconnecting client ip %s\n" , inet_ntoa(r.sin_addr));
+                    strcpy(message, p->name);
+                    strcat(message, " has left the game.\n");
+                    broadcast(message);
+                    //Close the socket and mark as 0 in list for reuse
+                    next = p->next;
+                    // Change players move
+                    if (turn == p->fd) {
+                        if (next != NULL) {
+                            turn = next->fd;
+                        } else if (playerlist != NULL) {
+                            turn = playerlist->fd;
+                        } else {   // Probably don't need this line but whatever
+                            turn = -1;
+                            printf("No one's turn\n");
+                        }
+                    }
+                    close(p->fd);
+                    delete(p->fd);
+                }
+                buf[valread] = '\0';
+                // printf("BUF is %s\n", buf);
+                // Player isn't playing and needs to put in a name first
+                if (!(p->playing)) {
+                    // Make newline terminating zero byte. Don't want two newlines
+                    lastchar = buf[valread-1];
+                    buf[valread-1] = '\0';
+                    val = is_valid(buf);
+                    printf("val = %d\n", val);
+                    // Duplicate name
+                    if (val == 1) {
+                        printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
+                        send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
+                        break;
+                    // Empty name
+                    } else if (val == 2){
+                        printf("rejecting empty name\n");
+                        send(p->fd, "What is your name?\n", 19, 0);
+                        break;
+                    // Valid name
+                    } else if (lastchar == '\r' || lastchar == '\n') {
+                        p->playing = 1;
+                        strcpy(p->name, buf);
+                        strcpy(message, buf);
+                        strcat(message, " has joined the game\n");
+                        printf("%s's name is set to %s\n", inet_ntoa(r.sin_addr), p->name);
+                        broadcast(message);
+                    }
+                // Player is playing, actual game content here
+                } else {
 
-                // if !p->joined
-                // read name and store in p->name;
 
-                // else if p->joined
-                    // If move = p->fd
-                    // read index and must be valid from
-                    // else print
-                    // gtfo just to him
-
+                    //printf("My FD is %d\n", p->fd);
+                }
             }
         }
-
     }
 
     broadcast("Game over!\r\n");
@@ -181,16 +247,24 @@ int main(int argc, char **argv)
 }
 
 void broadcast(char *s) {
+    struct player *p;
+    for (p = playerlist; p; p = p->next)
+        send(p->fd, s, strlen(s), 0);
+}
 
+void broadcast_playing(char *s) {
+    struct player *p;
+    for (p = playerlist; p; p = p->next) {
+        if (p->playing == 0) continue;
+        send(p->fd, s, strlen(s), 0);
+    }
+}
 
-
-
-
+char * print_board() {
 
 }
 
-
-int parseargs(int argc, char **argv)
+void parseargs(int argc, char **argv)
 {
     int c, status = 0;
     while ((c = getopt(argc, argv, "p:")) != EOF) {
@@ -207,37 +281,7 @@ int parseargs(int argc, char **argv)
 	   fprintf(stderr, "usage: %s [-p port]\n", argv[0]);
 	   exit(1);
     }
-
-    return port;
 }
-
-
-void makelistener()
-{
-    struct sockaddr_in r;
-
-    if ((listenfd = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-    	perror("socket");
-    	exit(1);
-    }
-
-    memset(&r, '\0', sizeof r);
-    r.sin_family = AF_INET;
-    r.sin_addr.s_addr = INADDR_ANY;
-    r.sin_port = htons(port);
-    if (bind(listenfd, (struct sockaddr *)&r, sizeof r)) {
-    	perror("bind");
-    	exit(1);
-    };
-
-    if (listen(listenfd, 5)) {
-    	perror("listen");
-    	exit(1);
-    }
-}
-
-
-
 
 int compute_average_pebbles()  /* call this BEFORE linking the new player in to the list */
 {
