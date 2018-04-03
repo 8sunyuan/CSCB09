@@ -11,8 +11,6 @@
 #include <sys/time.h>
 #include <errno.h>
 
-
-
 int port = 3000;
 int listenfd;
 
@@ -24,7 +22,7 @@ struct player {
     int fd;
     int pits[NPITS+1];
     int playing;
-    char name[1025];
+    char name[MAXNAME];
     struct player *next;
 } *playerlist = NULL;
 
@@ -33,6 +31,7 @@ extern void makelistener();
 extern int compute_average_pebbles();
 extern int game_is_over();  /* boolean */
 extern void broadcast(char *s);
+extern void print_board();
 
 void delete(int fd)
 {
@@ -50,7 +49,7 @@ void delete(int fd)
 
 void insert(int fd, int playing)
 {
-    struct player *new, **p;
+    struct player *new;
     int i, pebbles = compute_average_pebbles();
     /* create the new item */
     if ((new = malloc(sizeof(struct player))) == NULL) {
@@ -59,12 +58,12 @@ void insert(int fd, int playing)
     }
     new->fd = fd;
     new->playing = playing;
+    // Set pebbles for each pit
     for (i = 0; i < NPITS; i++)
         new->pits[i] = pebbles;
-
-    for (p = &playerlist; *p; p = &(*p)->next);
-    new->next = *p;
-    *p = new;
+    //Insert at head of list
+    new->next = playerlist;
+    playerlist = new;
 }
 
 void printall()
@@ -97,6 +96,40 @@ int is_valid(char *s) {
     return 0;
 }
 
+char *trimwhitespace(char *str)
+{
+  char *end;
+
+  // Trim leading space
+  while(isspace((unsigned char)*str)) str++;
+
+  if(*str == 0)  // All spaces?
+    return str;
+
+  // Trim trailing space
+  end = str + strlen(str) - 1;
+  while(end > str && isspace((unsigned char)*end)) end--;
+  // Write new null terminator
+  *(end+1) = 0;
+
+  return str;
+}
+
+// int parse_move(int fd, char *s) {
+//     buf[0] = trimwhitespace(buf);
+//     char *endptr;
+//     int pitnum = strtol(buf, &endptr, 10);
+//     if (*endptr != '\0') break;
+//     int pebbles;
+//     if ((pebbles = p->pits[pitnum]) == 0) {
+//         strcpy(message, "Your pit number ");
+//         strcat(message, itoa(pitnum));
+//         strcat(message, " is empty\n");
+//         send(p->fd, message, strlen(message), 0);
+//         break;
+//     }
+// }
+
 int main(int argc, char **argv)
 {
     struct player *p, *next;
@@ -108,7 +141,7 @@ int main(int argc, char **argv)
     char buf[1025];
     char welcome[50] = "Welcome to Mancala. What is your name?\n";
     char message[1001];
-    int val, turn = -1;
+    int valid_name, pitnum, pebbles, turn = -1;
     int lastchar;
 
     parseargs(argc, argv);
@@ -167,7 +200,7 @@ int main(int argc, char **argv)
             continue;
         }
         // IO operation on other socket
-        printall();
+        //printall();
         for (p = playerlist; p; p = p->next) {
             if (FD_ISSET(p->fd, &readfds)) {
                 //printall();
@@ -201,15 +234,15 @@ int main(int argc, char **argv)
                     // Make newline terminating zero byte. Don't want two newlines
                     lastchar = buf[valread-1];
                     buf[valread-1] = '\0';
-                    val = is_valid(buf);
-                    printf("val = %d\n", val);
+                    valid_name = is_valid(buf);
+                    //printf("valid_name = %d\n", valid_name);
                     // Duplicate name
-                    if (val == 1) {
+                    if (valid_name == 1) {
                         printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
                         send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
                         break;
                     // Empty name
-                    } else if (val == 2){
+                    } else if (valid_name == 2){
                         printf("rejecting empty name\n");
                         send(p->fd, "What is your name?\n", 19, 0);
                         break;
@@ -221,12 +254,58 @@ int main(int argc, char **argv)
                         strcat(message, " has joined the game\n");
                         printf("%s's name is set to %s\n", inet_ntoa(r.sin_addr), p->name);
                         broadcast(message);
+                        print_board(turn);
                     }
                 // Player is playing, actual game content here
                 } else {
+                    // Not the players move
+                    if (turn != p->fd) {
+                        send(p->fd, "It is not your move.\n", 22, 0);
+                        break;
+                    }
+                    turn = (p->next != NULL) ? p->next->fd : playerlist->fd;
+                    //printf("%s's turn. turn = %d, p->fd = %d", p->name, turn, p->fd);
+                    // Trim trailing space
+                    char *end = buf + strlen(buf) - 1;
+                    while(end > buf && isspace((unsigned char)*end)) end--;
+                    // Write new null terminator
+                    *(end+1) = 0;
+                    if (buf[1] != '\0') break;
+                    pitnum = buf[0] - '0';
+                    // Check pitnum is in valid range
+                    if (pitnum >= 0 && pitnum <= NPITS - 1) {
+                        pebbles = p->pits[pitnum];
+                        if (pebbles == 0) {
+                            send(p->fd, "Your pit is empty. Try again\n", 30, 0);
+                            break;
+                        }
+                        p->pits[pitnum] = 0;
+                        pitnum++;
+                        // Distribute pebbles to adjacent pits
+                        while (pebbles != 0) {
+                            while (pitnum <= NPITS && p->playing) {
+                                p->pits[pitnum]++;
+                                pitnum++;
+                                if (--pebbles == 0) break;
+                            }
+                            if (pebbles != 0) pitnum = 0;
+                            // Go to next player to distribute pebbles
+                            p = (p->next) ? p->next : playerlist;
+                        }
+                        // If last pebble didn't land in last pit, change turns
+                        if (pitnum == NPITS)
+                            broadcast("DIS BOI GOES AGAIN");
+                        else 
+                            turn = (p->next != NULL) ? p->next->fd : playerlist->fd;
 
-
-                    //printf("My FD is %d\n", p->fd);
+                        print_board(turn);
+                    } else {
+                        strcpy(message, "Pit number go from 0 to 5\n");
+                        // strcat(message, NPITS + '0');
+                        // strcat(message, " \n");
+                        send(p->fd, message, strlen(message), 0);
+                        break;
+                    }
                 }
             }
         }
@@ -260,8 +339,39 @@ void broadcast_playing(char *s) {
     }
 }
 
-char * print_board() {
-
+void print_board(int turn) {
+    struct player *p = playerlist;
+    char message[1025] = "";
+    char *result;
+    char move[MAXNAME + 20] = "It is ";
+    for (p = playerlist; p; p = p->next) {
+        strcat(message, p->name);
+        strcat(message, ": ");
+        for (int i = 0; i <= NPITS; i++) {
+            result = malloc(8*sizeof(p->pits[i]));
+            sprintf(result, "%d", i);
+            strcat(message, "[");
+            strcat(message, result);
+            strcat(message, "]");
+            sprintf(result, "%d", p->pits[i]);
+            strcat(message, result);
+            strcat(message, " ");
+        }
+        strcat(message, "\n");
+        if (turn == p->fd) {
+            strcat(move, p->name);
+            strcat(move, "'s turn\n");
+        }
+    }
+    
+    for (p = playerlist; p; p = p->next) {
+        if (p->playing == 0) continue;
+        send(p->fd, message, strlen(message), 0);
+        if (turn == p->fd)
+            send(p->fd, "YOUR MOVE?\n", 11, 0);
+        else
+            send(p->fd, move, strlen(move), 0);
+    }
 }
 
 void parseargs(int argc, char **argv)
