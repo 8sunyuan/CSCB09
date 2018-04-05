@@ -27,7 +27,6 @@ struct player {
 } *playerlist = NULL;
 
 extern void parseargs(int argc, char **argv);
-extern void makelistener();
 extern int compute_average_pebbles();
 extern int game_is_over();  /* boolean */
 extern void broadcast(char *s);
@@ -196,7 +195,7 @@ int main(int argc, char **argv)
     	exit(1);
     };
 
-    if (listen(server_socket, 500000)) {
+    if (listen(server_socket, 50)) {
     	perror("listen");
     	exit(1);
     }
@@ -259,12 +258,9 @@ int main(int argc, char **argv)
                     break;
                 }
                 buf[valread] = '\0';
-                // printf("BUF is %s\n", buf);
-                // Player isn't playing and needs to put in a name first
-                if (!(p->playing)) {
+                if (!(p->playing)) { // Player isn't playing and needs to put in a name first
                     // Make newline terminating zero byte. Don't want two newlines
                     lastchar = buf[valread-1];
-                    buf[valread-1] = '\0';
                     valid_name = is_valid(buf);
                     // Duplicate name
                     if (valid_name == 1) {
@@ -279,6 +275,8 @@ int main(int argc, char **argv)
                     // Valid name
                     } else {
                         strcat(p->name, buf);
+                        // Player has not fully entered his name until the
+                        // message ends with a newline
                         if (lastchar == '\r' || lastchar == '\n') {
                             printf("%s's name is set to %s\n", inet_ntoa(r.sin_addr), p->name);
                             sprintf(message, "%s has joined the game\n", p->name);
@@ -289,8 +287,7 @@ int main(int argc, char **argv)
                             print_board(turn);
                         }
                     }
-                // Player is playing, actual game content here
-                } else {
+                } else { // Player is playing, actual game content here
                     // Not the players move
                     if (turn != p->fd) {
                         send(p->fd, "It is not your move.\n", 22, 0);
@@ -328,15 +325,14 @@ int main(int argc, char **argv)
                                 } while(!q->playing);
                             }
                         }
-                        // p is the player right now that pit ends on
-                        // If last pebble did land in last pit
+                        // If last pebble landed in players own last pit
+                        // don't change turns
                         if (pitnum != NPITS || q->fd != turn)
                             turn = next_turn(p, turn, 0);
                         print_board(turn);
                     } else {
                         sprintf(message, "Pit numbers go from 0 to %d\n", NPITS - 1);
                         send(p->fd, message, strlen(message), 0);
-                        break;
                     }
                 }
             }
