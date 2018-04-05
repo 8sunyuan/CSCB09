@@ -13,6 +13,7 @@ int main(int argc, char **argv)
     struct hostent *hp;
     struct sockaddr_in r;
     static char name[] = "abcdefghijklmnopqrstuvwxyz";
+    char buf[1000];
 
     if (argc != 3 || (port = atoi(argv[2])) <= 0) {
 	fprintf(stderr, "usage: trickyclient hostname portnumber\n");
@@ -57,7 +58,7 @@ int main(int argc, char **argv)
     printf("Now sent 'z' and the newline, so it should finally acknowledge the name.\n");
     printf("The name is all 26 letters, abcdefghijklmnopqrstuvwxyz.\n");
     fflush(stdout);
-
+    int len = read(fd, buf, 1000);
     sleep(4);
     printf("Now exiting without reading the data from the server.  If your server gets\n");
     printf("upset at this, that might still be ok for CSC B09 assignment purposes.\n");
