@@ -160,9 +160,7 @@ int next_turn(struct player *p, int turn, int disconnect) {
         turn = -1;
     } else {
         turn = pp->fd;
-        //printf("%s's turn now at %d \n", pp->name, turn);
     }
-    printf("Name:%s FD:%d NEW TURN:%d\n\n", p->name, p->fd, turn);
     return turn;
 }
 
@@ -198,7 +196,7 @@ int main(int argc, char **argv)
     	exit(1);
     };
 
-    if (listen(server_socket, 5)) {
+    if (listen(server_socket, 500000)) {
     	perror("listen");
     	exit(1);
     }
@@ -237,42 +235,37 @@ int main(int argc, char **argv)
         }
 
         // IO operation on other socket
-        //printall();
         for (p = playerlist; p; p = p->next) {
             if (FD_ISSET(p->fd, &readfds)) {
-                //printall();
                 if ((valread = read(p->fd, buf, 1024)) == 0) {
                     //Somebody disconnected , get his details and print
                     getpeername(p->fd , (struct sockaddr*)&r , (socklen_t*)&size);
                     printf("disconnecting client ip %s\n" , inet_ntoa(r.sin_addr));
-                    // strcpy(message, p->name);
-                    // strcat(message, " has left the game.\n");
                     sprintf(message, "%s has left the game\n", p->name);
                     broadcast(message);
-                    if ((turn = next_turn(p, turn, 1)) != -1) {
+                    // Current turn is for player disconnecting. Change turn before
+                    // removing player from game
+                    if (p->fd == turn && ((turn = next_turn(p, turn, 1)) != -1)) {
+                        printf("%d\n", turn);
                         for (q = playerlist; q; q = q->next) {
                             if (q->fd == turn)
                                 sprintf(message, "It is %s's turn\n", q->name);
                         }
+                        print_board(turn);
+                        broadcast(message);
                     }
-                    print_board(turn);
-                    broadcast(message);
                     close(p->fd);
-                    // CHECK DELETE
-                    printf("No SEG HERE\n");
                     delete(p->fd);
-                    printall();
+                    break;
                 }
                 buf[valread] = '\0';
                 // printf("BUF is %s\n", buf);
                 // Player isn't playing and needs to put in a name first
                 if (!(p->playing)) {
-                    printall();
                     // Make newline terminating zero byte. Don't want two newlines
                     lastchar = buf[valread-1];
                     buf[valread-1] = '\0';
                     valid_name = is_valid(buf);
-                    //printf("valid_name = %d\n", valid_name);
                     // Duplicate name
                     if (valid_name == 1) {
                         printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
@@ -296,7 +289,6 @@ int main(int argc, char **argv)
                             print_board(turn);
                         }
                     }
-                    printall();
                 // Player is playing, actual game content here
                 } else {
                     // Not the players move
@@ -338,9 +330,7 @@ int main(int argc, char **argv)
                         }
                         // p is the player right now that pit ends on
                         // If last pebble did land in last pit
-                        if (pitnum == NPITS && q->fd == turn)
-                            broadcast("DIS BOI GOES AGAIN\n");
-                        else
+                        if (pitnum != NPITS || q->fd != turn)
                             turn = next_turn(p, turn, 0);
                         print_board(turn);
                     } else {
