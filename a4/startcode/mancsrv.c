@@ -120,10 +120,12 @@ void print_board(int turn) {
     for (p = playerlist; p; p = p->next) {
         if (p->playing == 0) continue;
         send(p->fd, message, strlen(message), 0);
-        if (turn == p->fd)
-            send(p->fd, "Your move\n", 11, 0);
-        else
-            send(p->fd, move, strlen(move), 0);
+        if (turn != -1) {
+            if (turn == p->fd)
+                send(p->fd, "Your move\n", 11, 0);
+            else
+                send(p->fd, move, strlen(move), 0);
+        }
     }
 }
 
@@ -265,7 +267,7 @@ int main(int argc, char **argv)
                     // Duplicate name
                     if (valid_name == 1) {
                         printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
-                        send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
+                        send(p->fd, "Sorry, someone else already has that name. Please choose another\n", 65, 0);
                         break;
                     // Empty name
                     } else if (valid_name == 2){
@@ -278,6 +280,7 @@ int main(int argc, char **argv)
                         // Player has not fully entered his name until the
                         // message ends with a newline
                         if (lastchar == '\r' || lastchar == '\n') {
+                            p->name[strlen(p->name) -1 ] = '\0';
                             printf("%s's name is set to %s\n", inet_ntoa(r.sin_addr), p->name);
                             sprintf(message, "%s has joined the game\n", p->name);
                             broadcast(message);
@@ -293,14 +296,10 @@ int main(int argc, char **argv)
                         send(p->fd, "It is not your move.\n", 22, 0);
                         break;
                     }
-                    // Trim trailing space
-                    char *end = buf + strlen(buf) - 1;
-                    while(end > buf && isspace((unsigned char)*end)) end--;
-                    // Write new null terminator
-                    *(end+1) = 0;
-                    if (buf[1] != '\0') break;
-                    pitnum = buf[0] - '0';
-                    // Check pitnum is in valid range
+
+                    if ((pitnum = strtol(buf, NULL, 10)) == 0 && buf[0] != '0')
+                        break;
+
                     if (pitnum >= 0 && pitnum <= NPITS - 1) {
                         pebbles = p->pits[pitnum];
                         if (pebbles == 0) {
@@ -313,6 +312,7 @@ int main(int argc, char **argv)
                         // Distribute pebbles to adjacent pits
                         while (pebbles != 0) {
                             while (pitnum <= NPITS && q->playing) {
+                                // Don't add to end pit unless its own players pit
                                 q->pits[pitnum]++;
                                 if (--pebbles == 0) break;
                                 pitnum++;
@@ -341,7 +341,8 @@ int main(int argc, char **argv)
 
     broadcast("Game over!\r\n");
     printf("Game over!\n");
-        for (p = playerlist; p; p = p->next) {
+    print_board(-1);
+    for (p = playerlist; p; p = p->next) {
     	int points, i;
     	for (points = i = 0; i <= NPITS; i++)
     	    points += p->pits[i];
