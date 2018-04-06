@@ -103,12 +103,12 @@ void print_board(int turn) {
     // Get string for board
     for (p = playerlist; p; p = p->next) {
         if (p->playing) {
-            sprintf(message, "%s%s: ", message, p->name);
+            sprintf(message, "%s%s:  ", message, p->name);
             for (int i = 0; i <= NPITS; i++) {
                 if (i < NPITS)
                     sprintf(message, "%s[%d]", message, i);
                 else
-                    sprintf(message, "%s[end pit]", message);
+                    sprintf(message, "%s [end pit]", message);
                 sprintf(message, "%s%d ", message, p->pits[i]);
             }
             strcat(message, "\n");
@@ -120,10 +120,12 @@ void print_board(int turn) {
     for (p = playerlist; p; p = p->next) {
         if (p->playing == 0) continue;
         send(p->fd, message, strlen(message), 0);
-        if (turn == p->fd)
-            send(p->fd, "Your move\n", 11, 0);
-        else
-            send(p->fd, move, strlen(move), 0);
+        if (turn != -1) {
+            if (turn == p->fd)
+                send(p->fd, "Your move\n", 11, 0);
+            else
+                send(p->fd, move, strlen(move), 0);
+        }
     }
 }
 
@@ -298,14 +300,10 @@ int main(int argc, char **argv)
                         send(p->fd, "It is not your move.\n", 22, 0);
                         break;
                     }
-                    // Trim trailing space
-                    char *end = buf + strlen(buf) - 1;
-                    while(end > buf && isspace((unsigned char)*end)) end--;
-                    // Write new null terminator
-                    *(end+1) = 0;
-                    if (buf[1] != '\0') break;
-                    pitnum = buf[0] - '0';
-                    // Check pitnum is in valid range
+
+                    if ((pitnum = strtol(buf, NULL, 10)) == 0 && buf[0] != '0')
+                        break;
+
                     if (pitnum >= 0 && pitnum <= NPITS - 1) {
                         pebbles = p->pits[pitnum];
                         if (pebbles == 0) {
@@ -318,9 +316,15 @@ int main(int argc, char **argv)
                         // Distribute pebbles to adjacent pits
                         while (pebbles != 0) {
                             while (pitnum <= NPITS && q->playing) {
+                                // Don't add to end pit unless its own players pit
                                 q->pits[pitnum]++;
                                 if (--pebbles == 0) break;
                                 pitnum++;
+                            }
+                            // Ensure last pebble doesn't go into opponents last
+                            if (q->fd != turn && pitnum == NPITS + 1) {
+                                pebbles++;
+                                q->pits[pitnum-1]--;
                             }
                             // Reset index at 0 and find adjacent player
                             if (pebbles != 0) {
@@ -346,7 +350,8 @@ int main(int argc, char **argv)
 
     broadcast("Game over!\r\n");
     printf("Game over!\n");
-        for (p = playerlist; p; p = p->next) {
+    print_board(-1);
+    for (p = playerlist; p; p = p->next) {
     	int points, i;
     	for (points = i = 0; i <= NPITS; i++)
     	    points += p->pits[i];
