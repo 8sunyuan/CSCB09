@@ -1,0 +1,4 @@
+while test -f file1
+do
+	sleep 1
+done

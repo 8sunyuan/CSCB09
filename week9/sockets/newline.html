@@ -1,0 +1,212 @@
+<!doctype html>
+<html>
+
+<head>
+
+<title>CSC B09: Newline conventions and internet communications</title>
+
+<meta name=viewport content="width=device-width, initial-scale=1">
+
+<style type="text/css">
+    body {
+        color: black;
+        background-color: #ffe7e7;
+    }
+    hr {
+        border-style: solid;
+    }
+    div.toc {
+        float: right;
+        padding-left: 20px;
+        padding-right: 20px;
+        padding-top: 20px;
+        padding-bottom: 20px;
+        background-color: #cc7777;
+        color: white;
+        link: white;
+        visited: white;
+        line-height: 150%;
+    }
+    div.toc a:link {
+        color: white;
+    }
+    div.toc a:visited {
+        color: white;
+    }
+
+    .hidden { display: none; }
+    .unhidden { display: block; }
+</style>
+
+<script type="text/javascript">
+    function show(s) {
+        document.getElementById(s).className = 'unhidden';
+    }
+    function reveal(n) {
+        document.getElementById(n + '_teaser').className = 'hidden';
+        document.getElementById(n + '_hr').className = 'unhidden';
+        document.getElementById(n + '_full').className = 'unhidden';
+	n1 = n + 1;
+        document.getElementById(n1 + '_hr').className = 'unhidden';
+    }
+</script>
+
+</head>
+
+<body>
+<div class=toc>
+
+<a href="../../.">Introduction</a>
+<br>
+<a href="../../announce.html">Announcements</a>
+
+<p>
+
+<a href="../../sched/">Schedule</a>
+<br>
+<a href="../../lab/">Labs</a>
+<br>
+<a href="../../asmt.html">Assignments</a>
+<br>
+<a href="../../tahours.html">TA office hours</a>
+
+<p>
+<a href="../../mid/">Mid-term test</a>
+
+<p>
+
+<a href="../../video/">Videos</a>
+<br>
+<a href="../../notes/">Course notes</a>
+<br>
+<a href="../../probs/">Extra problems</a>
+<br>
+
+<a href="javascript:show('bb')">Discussion board</a>
+<div id=bb class=hidden>
+    <ul>
+    <li>
+    <a href="https://piazza.com/mail.utoronto.ca/spring2018/cscb09">Discussion
+    board signup</a>
+    <li>
+    <a href="https://piazza.com/class">Discussion board login</a>
+    </ul>
+</div>
+
+<p>
+<a href="../../netgrade-results.html">Grades so far</a>
+
+</div>
+
+<h1>Newline conventions and internet communications</h1>
+
+A text file is a sequence of zero or more "lines".
+A line of a text file is a sequence of zero or more non-newline characters
+followed by a newline.
+
+<h3> What's a newline? </h3>
+
+<p>
+Different operating systems have different newline "conventions".
+The ASCII character standard says that if you are going to
+use a single byte to separate lines, you should use byte number 10, which we
+also call "control-J", or "line feed" or "LF".
+Using this single character
+is the newline convention for unix,
+so in unix we often simply call this byte value the "newline character", and
+we get it in C in unix by typing "\n".
+
+<p>
+MS-Windows uses a two-byte sequence to separate lines in a
+text file.
+The original ASCII standard actually says that this is preferred;
+and it was common in the 1970s and earlier.  (I think that this preference for a
+two-byte sequence is unfortunate, and that it's helpful that unix uses a
+single byte.)
+These two bytes are what we
+could call "control-M" and "control-J".  "Control-M" is also known as
+"carriage return" or "CR".  Together, this two byte sequence is called "CRLF".
+
+<p>
+Some other operating systems have other newline conventions.
+
+<p>
+These differing newline conventions present an interoperability problem.
+You may have had a problem at some time in your life with
+transferring files from MS-Windows to unix, such that your file
+ends up with a bunch of ^Ms in it on unix.
+You'll have this whenever you transfer a file between this combination of
+operating system types
+without performing a newline conversion between the MS-Windows newline
+sequence and the unix newline sequence.  Such a conversion is often a
+feature of file transfer programs... but it <i>must</i> be optional because it
+would make a mess of non-text files.
+
+<h3> How do we make the <i>inter</i>net interoperable? </h3>
+
+If dissimilar computers are to be able to communicate over the internet,
+the data transmitted over the internet must not be machine-type-specific.
+That is, if we intend to transmit the same data from a unix machine and from a
+CRLF-using machine, those two transmissions must be the same sequence
+of bytes.
+
+<p>
+In the case of transmitting data which we consider to be integers,
+we need to standardize on the byte order.
+The standard network byte order is big-endian; a "little-endian" machine must
+swap bytes in integers when copying them to and from network transmission
+buffers.
+This is discussed in the textbook.
+
+<p>
+In the case of transmitting text, the ASCII standard gives us standard
+byte values for just about everything <i>except</i> newlines.
+So we need to adopt a newline standard for network text transmission.
+(This is not discussed in the textbook; it seems to me that it's an omission.)
+
+<p>
+The way in which you encode the newline concept in bytes is called a newline
+"convention".
+Just as we have a network byte order, we have a network newline convention.
+
+<p>
+The network newline convention is CRLF.
+That is, a newline is represented by the two bytes (in order) which we could
+call CR and LF, or control-M and control-J, or 13 and 10, or \015 and \012.
+
+<h3> How do we write C code to specify a CRLF? </h3>
+
+<p>
+In unix, \n means LF.  (In MS-Windows, \n should expand to the two characters ^M
+and ^J, by the time it gets written to a file on disk, although the C standard
+requires it
+to seem to be a single character to your C program.)
+<br>
+Also, in unix you can use \r for CR.  So we can write the network newline
+convention in a string in unix as \r\n.  This is, then, a unix-specific
+encoding of this purposefully-non-unix-specific network newline sequence.
+
+<p>
+In general in C, we could write "\015\012".
+This is then not unix-specific.
+However, your assignment four is probably already unix-specific in more
+substantial ways than this, and it's fine to write "\r\n" in your assignment
+four, in my opinion.
+I think that "\r\n" is the usual way this is written in unix network
+communication programs.
+On the other hand, it's certainly at least as good to write "\015\012"
+instead (if not better).
+
+<p>
+The "network newline convention" is the rule that you convert <i>to</i> the
+network newline convention upon transmission (e.g. in unix you put ^Ms before
+all ^Js) and that you convert <i>from</i> the network newline convention upon
+receipt (e.g. in unix you either ignore all ^Ms, or treat them the same as
+^Js if blank lines don't matter, or do the more thorough operation of
+converting all CRLF pairs to just LF).
+
+<p>
+<hr>
+
+</body>
+</html>

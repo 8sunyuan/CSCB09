@@ -1,0 +1,9 @@
+
+/cmsfaculty/ajr/b09/lab/07/permute $* |
+    while read line
+    do
+	if ./ispalindrome "$line"
+	then
+	    echo "$line"
+	fi
+    done

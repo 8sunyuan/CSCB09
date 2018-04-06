@@ -1,0 +1,3 @@
+echo Give a value of joules
+read val
+echo $val joules is 9000 calories

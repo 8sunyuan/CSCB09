@@ -1,0 +1,9 @@
+for file in *
+do 
+	if grep x "$file1" >/dev/null 
+	then
+		rm $file1
+	fi
+done
+
+

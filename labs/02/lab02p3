@@ -1,0 +1,3 @@
+The program that converts joules to calories violates the principle where it should be expected that the output of the program can become the input to another.
+
+If we wanted to use the program with a pipe and peform more arithmetic with expr, we wouldn't be able to just simply take the value because the output is an entire sentence string rather than a number.  
