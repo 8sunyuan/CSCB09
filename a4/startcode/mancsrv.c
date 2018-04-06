@@ -317,6 +317,10 @@ int main(int argc, char **argv)
                                 if (--pebbles == 0) break;
                                 pitnum++;
                             }
+                            if (q->fd != turn && pitnum == NPITS + 1) {
+                                pebbles++;
+                                q->pits[pitnum-1]--;
+                            }
                             // Reset index at 0 and find adjacent player
                             if (pebbles != 0) {
                                 pitnum = 0;
