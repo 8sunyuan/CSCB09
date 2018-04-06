@@ -261,23 +261,28 @@ int main(int argc, char **argv)
                 if (!(p->playing)) { // Player isn't playing and needs to put in a name first
                     // Make newline terminating zero byte. Don't want two newlines
                     lastchar = buf[valread-1];
-                    valid_name = is_valid(buf);
-                    // Duplicate name
-                    if (valid_name == 1) {
-                        printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
-                        send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
-                        break;
-                    // Empty name
-                    } else if (valid_name == 2){
-                        printf("rejecting empty name\n");
-                        send(p->fd, "What is your name?\n", 19, 0);
-                        break;
-                    // Valid name
-                    } else {
-                        strcat(p->name, buf);
-                        // Player has not fully entered his name until the
-                        // message ends with a newline
-                        if (lastchar == '\r' || lastchar == '\n') {
+                    strcat(p->name, buf);
+                    if (lastchar == '\r' || lastchar == '\n') {
+                        char *newline;
+                        if ((newline = strchr(p->name, lastchar)))
+                            *newline = '\0';
+                        valid_name = is_valid(buf);
+                        // Duplicate name
+                        if (valid_name == 1) {
+                            printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
+                            send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
+                            memset(p->name, '\0', strlen(p->name));
+                            break;
+                        // Empty name
+                        } else if (valid_name == 2){
+                            printf("rejecting empty name\n");
+                            send(p->fd, "What is your name?\n", 19, 0);
+                            memset(p->name, '\0', strlen(p->name));
+                            break;
+                        // Valid name
+                        } else {
+                            // Player has not fully entered his name until the
+                            // message ends with a newline
                             printf("%s's name is set to %s\n", inet_ntoa(r.sin_addr), p->name);
                             sprintf(message, "%s has joined the game\n", p->name);
                             broadcast(message);
