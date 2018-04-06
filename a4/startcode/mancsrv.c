@@ -103,12 +103,12 @@ void print_board(int turn) {
     // Get string for board
     for (p = playerlist; p; p = p->next) {
         if (p->playing) {
-            sprintf(message, "%s%s: ", message, p->name);
+            sprintf(message, "%s%s:  ", message, p->name);
             for (int i = 0; i <= NPITS; i++) {
                 if (i < NPITS)
                     sprintf(message, "%s[%d]", message, i);
                 else
-                    sprintf(message, "%s[end pit]", message);
+                    sprintf(message, "%s [end pit]", message);
                 sprintf(message, "%s%d ", message, p->pits[i]);
             }
             strcat(message, "\n");
@@ -317,6 +317,7 @@ int main(int argc, char **argv)
                                 if (--pebbles == 0) break;
                                 pitnum++;
                             }
+                            // Ensure last pebble doesn't go into opponents last
                             if (q->fd != turn && pitnum == NPITS + 1) {
                                 pebbles++;
                                 q->pits[pitnum-1]--;
