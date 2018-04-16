@@ -1,0 +1,13 @@
+a) How does the following function in C find the side of the array parameter
+
+void f(int *p)
+{
+    ...
+}
+
+Not possible. No way to know if you are end of array. Sizeof definitely does
+not work. p is simply a pointer to an int. Can't get size of array out of pointer.
+
+b) Under what circumstances would the answer to part (a) be different if the parameter were of type "char *"?
+
+If we consider it a string then there will be a zero byte with '\0'.

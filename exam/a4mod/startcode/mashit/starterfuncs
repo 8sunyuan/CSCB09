@@ -1,0 +1,9 @@
+compute avg pebbles
+    - goes thru all players and sums up pebbles
+    - returns avg number of pebbles rounded up
+
+game_is_over()
+    - goes thru all players
+    - checks if a player has all empty pits, not including endpit
+    - game is over in this case
+
