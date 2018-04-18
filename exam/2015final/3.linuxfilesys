@@ -1,0 +1,28 @@
+////////////Index
+1.  Each inode contains a integer index for a single file on the disk.
+    Each inode represents a file, this includes directories as well.
+
+    Inodes are always unique but unique per partition.
+    To uniquely identify a file, you need the inode and the device (the disk partition).
+
+
+////////////MODE
+2.  Inode contains mode, example being r-xr-xr-x
+    The file mode determines the type of file and how the file's owner,
+    its group, and others can access the file.
+
+////////////Datablocks
+3.  The contents of the file is in the data blocks, not the inode;
+    what is in the inode is the location of the data blocks which are the
+    content of that file. The inode contains a variety of data.
+
+    The contents of a directory is simply a list of pairs (structs of two elements),
+    which are the file name and the inode number for that file.
+
+
+In addition
+    -   group (gid) (similarly affects the interpretation of the mode; but no affect on who can change the mode, or even who can change the group)
+    -   times: last modification time (mtime), last access time (atime), and last inode change time (ctime)
+    -   NOT the file name. E.g. a file linked-in twice can have two different names.
+    -   location on disk: list of block numbers, etc
+            ... bounded file sizes, cf chaining systems, etc

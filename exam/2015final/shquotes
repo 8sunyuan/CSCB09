@@ -1,0 +1,47 @@
+A programmer writes the statement
+
+test "$x" = "$y"
+
+        as an 'if' condition. Remember that '=' is a string comparison in test.
+        # numeric comparison operators
+            -lt     -ne
+            -gt     -le
+            -eq     -ge
+
+        # string comparison operators
+            =       !=
+
+        e.g "test 03 = 3" vs "test 03 -eq 3"
+            succesful for numeric but not string comparison
+
+test "$x" = "$y"
+
+a) Why are the double quotes necessary? Explain by giving possible values for the variables x
+and y such that "test $x = $y" would yield a syntax error from test, but the above version with
+the double quotes would work as expected.
+
+        Double quotes suppress the interpretation of everything except for:
+            - dollar sign $
+            - backquote `
+            - backslash \
+            - the closing double quote
+
+        Single quotes suppress the interpretation of everything except for the
+        closing single quote
+
+        Without the double quotes, spaces in variables will separate the string into multiple arguments
+        which will cause a syntax error.
+
+
+x is: "12 3"
+
+
+
+y is: "12 3"
+
+
+
+b) Using a version of test written along the lines of our ‘‘simpletest’’, the programmer gets a
+syntax error anyway, even with the double quotes! That’s because the variable x contained the
+two character string "−f", so "=" was considered to be a file name, and the value in y was then a
+syntax error. How would you change the above test statement to protect against this possibility?
