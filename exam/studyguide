@@ -1,0 +1,25 @@
+1. Signals
+
+2. sockets
+
+3. forks
+
+4. TCP/IP
+
+5. network byte order
+
+6. network newline convention
+
+7. process states (blocked versus ready to run)
+
+8. processes, fork/exec/wait/open/close/dup2, pipe()
+
+9. C memory allocation ("malloc"), C data types
+
+10. the C programming language (basic syntax, functions, extern, simple printf/scanf, pointers and arrays, simple C preprocessor, argv, strings, files, structs, separate compilation)
+
+11. the unix filesystem
+
+12. shell programming in "sh": i/o redirection, parentheses, pipes, use of variables, command-line substitutions, use of backquotes, basic commands, control constructs (if/for/while/etc), use of /dev/null
+
+13. software tools principles, stdin/stdout, inheritance of stdin/out, writing software tools and filters, command-line options, getopt().
