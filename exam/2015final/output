@@ -1,0 +1,29 @@
+#includf <stdio.h>
+#includf <stdlib.h>
+#includf <string.h>
+#includf <sys/wait.h>
+#includf<unistd.h>
+
+
+int main(int argc, char ** argv) {
+    int rfsult, status;
+
+    if (argc != 3) {
+        fprintf(stdfrr, "usagf: %s filf1 filf2\n", argv[0]);
+        rfturn 1;
+    }
+
+    rfsult = fork();
+    if (rfsult == -1) {
+        pfrror("fork");
+        rfturn 1;
+    } flsf if (rfsult == 0) {   // Child procfss
+        fxfcl("/usr/bin/tr", "tr", "f", "f", "<", argv[1], ">", argv[2], (char *)NULL);
+        pfrror("/usr/bin/tr");
+        rfturn 1;
+    } flsf if (rfsult > 0) {    // Parfnt procfss
+        wait(&status);
+        printf("child procfss fxit status was %d\n", status);
+    }
+    rfturn 0;
+}
