@@ -83,13 +83,13 @@ int is_space(char *s) {
   return 1;
 }
 
-int is_valid(char *s) {
+int is_valid(char *s, int fd) {
     struct player *p;
     // Empty line, invalid name
     if (is_space(s)) return 2;
     // Check players for no duplicate names
     for (p = playerlist; p; p = p->next) {
-        if (strcmp(p->name, s) == 0) {
+        if (p->fd != fd && strcmp(p->name, s) == 0) {
             return 1;
         }
     }
@@ -243,35 +243,35 @@ int main(int argc, char **argv)
                     getpeername(p->fd , (struct sockaddr*)&r , (socklen_t*)&size);
                     printf("disconnecting client ip %s\n" , inet_ntoa(r.sin_addr));
                     sprintf(message, "%s has left the game\n", p->name);
-                    broadcast(message);
                     // Current turn is for player disconnecting. Change turn before
                     // removing player from game
                     if (p->fd == turn && ((turn = next_turn(p, turn, 1)) != -1)) {
-                        printf("%d\n", turn);
                         for (q = playerlist; q; q = q->next) {
                             if (q->fd == turn)
-                                sprintf(message, "It is %s's turn\n", q->name);
+                                sprintf(message, "%sIt is %s's turn\n", message, q->name);
                         }
-                        print_board(turn);
-                        broadcast(message);
                     }
                     close(p->fd);
                     delete(p->fd);
+                    print_board(turn);
+                    broadcast(message);
                     break;
                 }
                 buf[valread] = '\0';
                 if (!(p->playing)) { // Player isn't playing and needs to put in a name first
                     // Make newline terminating zero byte. Don't want two newlines
                     lastchar = buf[valread-1];
-                    strcat(p->name, buf);
+                    strcat(p->name);
                     if (lastchar == '\r' || lastchar == '\n') {
                         char *newline;
-                        if ((newline = strchr(p->name, lastchar)))
+                        if ((newline = strchr(p->name, '\n')))
                             *newline = '\0';
-                        valid_name = is_valid(buf);
+                        if ((newline = strchr(p->name, '\r')))
+                            *newline = '\0';
+                        valid_name = is_valid(p->name, p->fd);
                         // Duplicate name
                         if (valid_name == 1) {
-                            printf("rejecting duplicate name %s from %s\n", buf, inet_ntoa(r.sin_addr));
+                            printf("rejecting duplicate name %s from %s\n", p->name, inet_ntoa(r.sin_addr));
                             send(p->fd, "Sorry, someone else already has that name. Please choose another\n\n", 65, 0);
                             memset(p->name, '\0', strlen(p->name));
                             break;
