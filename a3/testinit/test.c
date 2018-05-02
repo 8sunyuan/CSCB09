@@ -5,6 +5,57 @@
 #include <string.h>
 #include <ctype.h>
 
+struct Node {
+	int pid;         // unique process id
+	char *command;   // string containing third field in innitab
+	struct Node *next;
+};
+
+struct Node* initialize(int id) {
+	struct Node *t;
+	t = (struct Node *) malloc(sizeof(struct Node));
+	t->pid = -1;
+	t->next = t;
+	// Create list with head node having pid -1
+	return t;
+}
+
+struct Node* insert(int pid, char *com, struct Node *curr) {
+  // Create Node with given pid and command
+  // Insert to tail of list and return it
+  struct Node *x;
+	x = (struct Node *) malloc(sizeof(struct Node));
+	x->pid = pid;
+	x->command = malloc(1001*sizeof(char));
+ 	strcpy(x->command, com);
+	x->next = curr->next;
+	curr->next = x;
+	return x;
+}
+
+void change_pid(int result, int pid, struct Node *t) {
+  t = t->next;
+  // Replace process pid with new id of result
+  while (t->pid != -1) {
+    if (t->pid == pid) {
+      t->pid = result;
+      break;
+    }
+  }
+}
+
+struct Node *get_proc(int pid, struct Node *t) {
+	struct Node *x = t->next;
+	while (x->pid > 0) {
+		if (x->pid == pid)
+      // Return node that has process id of pid
+			return x;
+		x = x->next;
+	}
+	// Returns head of list if pid is not in list
+	return x;
+}
+
 int main(int argc, char **argv) {
 	int c, status, result;
 	status = 0;
@@ -39,24 +90,12 @@ int main(int argc, char **argv) {
 		return 1;
 	}
 
-	// if (optind + 1 != argc) {
-	// 	fprintf(stderr, "usage: %s [-r runlevel] file\n", argv[0]);
-	// 	return status;
-	// }
-	//
-	// if ((fp = fopen(argv[2], "r")) == NULL) {
-	// 	perror(argv[2]);
-	// 	return 1;
-	// }
-
 	char *line, *first, *second, *third, *p;
 	line = malloc(1001*sizeof(char));
-	first = malloc(1001*sizeof(char));
-	second = malloc(1001*sizeof(char));
-	third = malloc(1001*sizeof(char));
-	memset(first,'\0',1001);
-	memset(second,'\0',1001);
-	memset(third,'\0',1001);
+
+	head = initialize(-1);
+	curr = head;
+
 	while((fgets(line, 1001, fp)) != NULL) {
 		i = 0;
 		respawn = 0;
@@ -81,7 +120,10 @@ int main(int argc, char **argv) {
 			first[0] = '\0';
 		} else {
 			while (*p && *p != ':') {
-				if (*p == *runlevel) run = 1;
+				for (j = 0; j < strlen(runlevel); j++)
+					if (*p == runlevel[j]) {
+						putchar(runlevel[j]);
+						run = 1; }
 				first[i++] = *p++;
 			}
 			first[i] = '\0';
@@ -120,24 +162,52 @@ int main(int argc, char **argv) {
 			third[i++] = *p++;
 		third[i] = '\0';
 		// Perform fork processes
-		do {
+		result = fork();
+		if (result == -1) {
+			perror("fork:");
+			continue;
+		} else if (result == 0) { // Child process
+			usleep(100000);
+			execl("/bin/sh", "sh", "-c", third, (char *)NULL);
+			perror("/bin/sh");
+			continue;
+		} else if (result > 0) {	// Parent Process
+			if (respawn) {
+				//printf("linked list no longer empty\n");
+				curr = insert(result, third, curr);
+				printf("Inserting PID: %d    COMM: %s\n", curr->pid, curr->command);
+			}
+		}
+	}
+
+	//printf("PID: %d    COMM: %s\n", head->pid, head->command);
+	//printf("PID: %d    COMM: %s\n", check->pid, check->command);
+	//printf("PID: %d    COMM: %s\n", curr->pid, curr->command);
+
+	if (head->pid == curr->pid) return 0; // List is empty so no processes to respawn
+
+	while (1) {
+		pid = wait(&status);
+		if ((check = get_proc(pid, head))->pid > 0) {
+			printf("Process in list PID: %d    COMM: %s\n", check->pid, check->command);
 			result = fork();
+			printf("Current process id -- %d", result);
 			if (result == -1) {
 				perror("fork:");
 				return(1);
-			} else if (result == 0) { // Child process
-				execl("/bin/sh", "sh", "-c", third, (char *)NULL);
+			} else if (result == 0) {
+				printf("respawn command: %s", check->command);
+				usleep(10000);
+				execl("/bin/sh", "sh", "-c", check->command, (char *)NULL);
 				perror("/bin/sh");
-				return (127);
-			} else if (result > 0) {	// Parent Process
-				if (waitpid(result, &status, 0) < 0)
-					perror("wait");
-			}
-		} while (respawn);
+			} else if (result > 0) {
+        // Change pid to new process id that returned
+        change_pid(result, check->pid, head);
+      }
+		}
 	}
-	return status;
+	return 1;
 }
-
 
 int is_empty(const char *s) {
   while (*s != '\0') {
